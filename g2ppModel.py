@@ -12,20 +12,6 @@ import numpy as np
 
 __all__ = ["G2ppModel", "SimulationResult"]
 
-try:
-    from numba import njit
-except ImportError:  # pragma: no cover - numba optional
-
-    def njit(*args, **kwargs):  # type: ignore
-        if args and callable(args[0]) and not kwargs:
-            return args[0]
-
-        def decorator(func):
-            return func
-
-        return decorator
-
-
 def _default_phi_factory(r0: float) -> Callable[[float], float]:
     """Return a constant shift matching the initial short rate."""
 
@@ -44,7 +30,6 @@ class SimulationResult:
     time_grid: np.ndarray
 
 
-@njit(cache=True)
 def _g2pp_em_kernel(
     x_paths: np.ndarray,
     y_paths: np.ndarray,
