@@ -1,5 +1,4 @@
 # IR-models
----
 
 ## VASICEK
 ### MODEL
