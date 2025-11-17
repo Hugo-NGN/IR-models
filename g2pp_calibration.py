@@ -12,6 +12,12 @@ with (correlated) Ornstein-Uhlenbeck factors x, y governed by
     dy = -b y dt + eta  dW2,   corr[dW1, dW2] = rho.
 """
 
+#TODO : Add a functionnality to calibrate phi(t) 
+#       1. Fitting initial term-structure
+#       2. Joint calibration (constant, linear or spline...) with the 2 factors parameters
+#       3. (Optional) time varying intercept (using Kalman filter)   [could be interesting to link to functionnal data]
+
+
 from __future__ import annotations
 
 import math
