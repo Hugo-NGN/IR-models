@@ -2,12 +2,6 @@
 Core G2++ model components shared by simulation and calibration modules.
 """
 
-#TODO : Add a functionnality to calibrate phi(t) 
-#       1. Fitting initial term-structure
-#       2. Joint calibration (constant, linear or spline...) with the 2 factors parameters
-#       3. (Optional) time varying intercept (using Kalman filter)   [could be interesting to link to functionnal data]
-
-
 from __future__ import annotations
 
 import warnings
