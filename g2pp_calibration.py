@@ -12,10 +12,7 @@ with (correlated) Ornstein-Uhlenbeck factors x, y governed by
     dy = -b y dt + eta  dW2,   corr[dW1, dW2] = rho.
 """
 
-#TODO : Add a functionnality to calibrate phi(t) 
-#       1. Fitting initial term-structure
-#       2. Joint calibration (constant, linear or spline...) with the 2 factors parameters
-#       3. (Optional) time varying intercept (using Kalman filter)   [could be interesting to link to functionnal data]
+#TODO : Complete the methods to caibrate phi(t) 
 
 
 from __future__ import annotations
@@ -25,13 +22,17 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Optional, Sequence
 
 import numpy as np
+import argparse
+import warnings
 
 try:
-    from scipy.optimize import minimize
-except ImportError as exc:  
-    raise ImportError(
-        "scipy is required for G2++ calibration. Install via `pip install scipy`."
-    ) from exc
+    from scipy.optimize import minimize  # type: ignore
+    _SCIPY_AVAILABLE = True
+except Exception:
+    # Defer import error until optimisation is actually requested so users can
+    # inspect CLI help or use non-optimisation parts of the module.
+    minimize = None  # type: ignore
+    _SCIPY_AVAILABLE = False
 
 from g2ppModel import G2ppModel
 
@@ -248,6 +249,11 @@ class G2ppKalmanMLE:
         if optimizer_kwargs:
             opt_kwargs.update(optimizer_kwargs)
 
+        if not _SCIPY_AVAILABLE:
+            raise ImportError(
+                "scipy is required for G2++ calibration. Install via `pip install scipy`."
+            )
+
         result = minimize(
             fun=self._negative_log_likelihood,
             x0=guess_vec,
@@ -306,7 +312,7 @@ def generate_synthetic_short_rates(
     return short_rates + noise
 
 
-def example_estimation() -> EstimationResult:
+def example_estimation(phi_method: str = "fit_term_structure") -> EstimationResult:
     """
     Example workflow: generate data, run Kalman MLE, print results.
     """
@@ -329,9 +335,61 @@ def example_estimation() -> EstimationResult:
         random_seed=7,
     )
 
+    # Default behaviour: fit a deterministic shift phi(t) that captures the
+    # initial term-structure. The user can choose another method via CLI.
+    def _compute_phi_from_method(obs: np.ndarray, dt: float, method: str) -> Callable[[float], float]:
+        """
+        Return a callable phi(t) based on the requested method.
+
+        Currently supported methods:
+        - "fit_term_structure": a simple smoothed/interpolated version of the
+          observed short-rate series (default for demonstrations).
+        - "joint": not implemented; falls back to "fit_term_structure" with a warning.
+        - "kalman_time_varying": not implemented; falls back to "fit_term_structure" with a warning.
+        """
+        n = obs.size
+        times = np.arange(n) * dt
+
+        if method == "fit_term_structure":
+            # simple smoothing via moving average then linear interpolation
+            window = max(3, int(0.02 * n))  # small window or at least 3
+            kernel = np.ones(window) / window
+            smooth = np.convolve(obs, kernel, mode="same")
+
+            # Adjust the entire smooth curve so that it matches the last
+            # observed short-rate (i.e. respect the last observed term
+            # structure). This applies a constant shift equal to the
+            # difference between the last observation and the smoothed
+            # value at the last time.
+            if n > 0:
+                offset = float(obs[-1] - smooth[-1])
+                smooth = smooth + offset
+
+            def phi(t: float) -> float:
+                return float(np.interp(t, times, smooth))
+
+            return phi
+
+        if method == "joint":
+            warnings.warn(
+                "Joint calibration for phi is not implemented; falling back to fit_term_structure"
+            )
+            return _compute_phi_from_method(obs, dt, "fit_term_structure")
+
+        if method == "kalman_time_varying":
+            warnings.warn(
+                "Time-varying Kalman calibration for phi is not implemented; falling back to fit_term_structure"
+            )
+            return _compute_phi_from_method(obs, dt, "fit_term_structure")
+
+        raise ValueError(f"Unknown phi calibration method: {method}")
+
+    phi_func = _compute_phi_from_method(observations, dt, phi_method)
+
     estimator = G2ppKalmanMLE(
         observations=observations,
         dt=dt,
+        phi=phi_func,
         measurement_var=1e-6,
     )
 
@@ -354,5 +412,16 @@ def example_estimation() -> EstimationResult:
 
 
 if __name__ == "__main__":
-    example_estimation()
+    parser = argparse.ArgumentParser(description="G2++ calibration example")
+    parser.add_argument(
+        "--phi-method",
+        type=str,
+        default="fit_term_structure",
+        choices=["fit_term_structure", "joint", "kalman_time_varying"],
+        help="Method to calibrate phi(t). Default: fit_term_structure",
+    )
+    args = parser.parse_args()
+
+    # Run example with chosen phi calibration method
+    example_estimation(phi_method=args.phi_method)
 
