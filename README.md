@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 Files:
 
-- `vasicek_model.py` — implementation of the Vasicek (Ornstein–Uhlenbeck) short-rate model, simulation routines
+- `ir_models/models/vasicek.py` — implementation of the Vasicek (Ornstein–Uhlenbeck) short-rate model, simulation routines
 
 What it does:
 
@@ -56,12 +56,14 @@ Mathematical formulation
 
 Files:
 
-- `vasicek_calibration.py` — calibration utilities (MLE/Kalman or closed-form where applicable).
+- `ir_models/calibration/vasicek.py` — calibration utilities (MLE/Kalman or closed-form where applicable).
 
 Usage:
 
-- Run the calibration script to fit Vasicek parameters to observed short-rate series. See the top of the file for
-	example usage and options.
+- Run the calibration script to fit Vasicek parameters to observed short-rate series.
+  ```bash
+  python3 -m ir_models.calibration.vasicek
+  ```
 
 Mathematical details used by the calibrator
 
@@ -90,7 +92,7 @@ Mathematical details used by the calibrator
 
 Files:
 
-- `vasicek_monte_carlo.py` — Monte Carlo drivers that use `vasicek_model.py` to generate scenarios for pricing/risk.
+- `ir_models/simulation/vasicek.py` — Monte Carlo drivers that use `ir_models/models/vasicek.py` to generate scenarios for pricing/risk.
 
 Usage:
 
@@ -102,7 +104,7 @@ Usage:
 
 Files:
 
-- `g2ppModel.py` — core G2++ model implementation and path simulator for two correlated OU factors.
+- `ir_models/models/g2pp.py` — core G2++ model implementation and path simulator for two correlated OU factors.
 
 What it does:
 
@@ -147,7 +149,7 @@ Theoretical moments used by the code
 
 Files:
 
-- `g2pp_calibration.py` — Kalman-filter / MLE estimator for the G2++ factors. The file contains an example workflow
+- `ir_models/calibration/g2pp.py` — Kalman-filter / MLE estimator for the G2++ factors. The file contains an example workflow
 	that (1) generates synthetic data, (2) constructs a phi(t) shift and (3) runs optimisation over factor parameters.
 
 phi calibration details:
@@ -186,27 +188,27 @@ Usage examples:
 Show help for the G2++ calibration example (no SciPy required to show help):
 
 ```bash
-python3 g2pp_calibration.py --help
+python3 -m ir_models.calibration.g2pp --help
 ```
 
 Run the example (SciPy required):
 
 ```bash
 pip install -r requirements.txt
-python3 g2pp_calibration.py
+python3 -m ir_models.calibration.g2pp
 ```
 
 Choose a phi method (currently `joint` and `kalman_time_varying` will warn and fall back):
 
 ```bash
-python3 g2pp_calibration.py --phi-method fit_term_structure
+python3 -m ir_models.calibration.g2pp --phi-method fit_term_structure
 ```
 
 ### MC Simulation
 
 Files:
 
-- `g2pp_monte_carlo.py` — Monte Carlo driver using `g2ppModel.py` for scenario generation.
+- `ir_models/simulation/g2pp.py` — Monte Carlo driver using `ir_models/models/g2pp.py` for scenario generation.
 
 Usage:
 

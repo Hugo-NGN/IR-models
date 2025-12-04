@@ -13,7 +13,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from g2ppModel import G2ppModel, SimulationResult
+from ir_models.models.g2pp import G2ppModel, SimulationResult
 
 
 def plot_short_rate_paths(

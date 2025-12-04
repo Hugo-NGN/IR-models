@@ -7,7 +7,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from vasicek_model import VasicekModel
+from ir_models.models.vasicek import VasicekModel
 
 def plot_simulations(
     paths: np.ndarray,

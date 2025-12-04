@@ -16,7 +16,7 @@ except ImportError as exc:  # pragma: no cover
         "scipy is required for Vasicek calibration. Install via `pip install scipy`."
     ) from exc
 
-from vasicek_model import VasicekModel
+from ir_models.models.vasicek import VasicekModel
 
 
 @dataclass

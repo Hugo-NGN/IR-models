@@ -34,7 +34,7 @@ except Exception:
     minimize = None  # type: ignore
     _SCIPY_AVAILABLE = False
 
-from g2ppModel import G2ppModel
+from ir_models.models.g2pp import G2ppModel
 
 
 def _default_phi(_: float) -> float:
