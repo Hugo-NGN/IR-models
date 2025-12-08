@@ -1,5 +1,5 @@
 """
-Calibrate the Vasicek model to historical short-rate data using MLE.
+Estimate the Vasicek model parameters from historical short-rate data using MLE.
 """
 
 from __future__ import annotations
@@ -13,14 +13,14 @@ try:
     from scipy.optimize import minimize
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "scipy is required for Vasicek calibration. Install via `pip install scipy`."
+        "scipy is required for Vasicek parameter estimation. Install via `pip install scipy`."
     ) from exc
 
 from ir_models.models.vasicek import VasicekModel
 
 
 @dataclass
-class VasicekCalibrationResult:
+class VasicekEstimationResult:
     params: Dict[str, float]
     log_likelihood: float
     optimized: bool
@@ -29,9 +29,9 @@ class VasicekCalibrationResult:
     residuals: np.ndarray
 
 
-class VasicekMLECalibrator:
+class VasicekMLEEstimator:
     """
-    Maximum-likelihood Vasicek calibration for equally spaced observations.
+    Maximum-likelihood Vasicek parameter estimation for equally spaced observations.
     """
 
     def __init__(self, rates: Sequence[float], dt: float) -> None:
@@ -39,7 +39,7 @@ class VasicekMLECalibrator:
         if rates_array.ndim != 1:
             raise ValueError("rates must be a 1D sequence.")
         if rates_array.size < 2:
-            raise ValueError("Need at least two observations to calibrate the model.")
+            raise ValueError("Need at least two observations to estimate the model.")
         if dt <= 0:
             raise ValueError("dt must be positive.")
 
@@ -126,7 +126,7 @@ class VasicekMLECalibrator:
         initial_guess: Optional[Dict[str, float]] = None,
         bounds: Optional[Dict[str, tuple[float, float]]] = None,
         optimizer_kwargs: Optional[Dict[str, float]] = None,
-    ) -> VasicekCalibrationResult:
+    ) -> VasicekEstimationResult:
         if initial_guess is None:
             initial_guess = self.ols_initial_guess()
 
@@ -174,7 +174,7 @@ class VasicekMLECalibrator:
             r0=self.rates[0],
         )
 
-        return VasicekCalibrationResult(
+        return VasicekEstimationResult(
             params=params,
             log_likelihood=log_like,
             optimized=result.success,
@@ -204,7 +204,7 @@ def generate_synthetic_rates(
     return rates
 
 
-def example_calibration() -> VasicekCalibrationResult:
+def example_estimation() -> VasicekEstimationResult:
     true_model = VasicekModel(kappa=0.4, theta=0.04, sigma=0.015, r0=0.03)
     dt = 1.0 / 252.0
     n_steps = 1000
@@ -216,10 +216,10 @@ def example_calibration() -> VasicekCalibrationResult:
         random_seed=123,
     )
 
-    calibrator = VasicekMLECalibrator(rates=rates, dt=dt)
-    result = calibrator.fit()
+    estimator = VasicekMLEEstimator(rates=rates, dt=dt)
+    result = estimator.fit()
 
-    print("Calibration success:", result.optimized)
+    print("Estimation success:", result.optimized)
     print("Message:", result.message)
     print("Log-likelihood:", result.log_likelihood)
     for name, value in result.params.items():
@@ -228,5 +228,5 @@ def example_calibration() -> VasicekCalibrationResult:
 
 
 if __name__ == "__main__":
-    example_calibration()
+    example_estimation()
 

@@ -94,7 +94,7 @@ class EstimationResult:
 
 class G2ppKalmanMLE:
     """
-    Calibrate G2++ parameters from short-rate observations using MLE.
+    Estimate G2++ parameters from short-rate observations using MLE.
     """
 
     def __init__(
@@ -251,7 +251,7 @@ class G2ppKalmanMLE:
 
         if not _SCIPY_AVAILABLE:
             raise ImportError(
-                "scipy is required for G2++ calibration. Install via `pip install scipy`."
+                "scipy is required for G2++ parameter estimation. Install via `pip install scipy`."
             )
 
         result = minimize(
@@ -275,7 +275,7 @@ class G2ppKalmanMLE:
 
 
 # ---------------------------------------------------------------------- #
-# Utility to generate synthetic data & demonstrate calibration workflow
+# Utility to generate synthetic data & demonstrate parameter estimation workflow
 # ---------------------------------------------------------------------- #
 def generate_synthetic_short_rates(
     true_params: Dict[str, float],
@@ -372,17 +372,17 @@ def example_estimation(phi_method: str = "fit_term_structure") -> EstimationResu
 
         if method == "joint":
             warnings.warn(
-                "Joint calibration for phi is not implemented; falling back to fit_term_structure"
+                "Joint parameter estimation for phi is not implemented; falling back to fit_term_structure"
             )
             return _compute_phi_from_method(obs, dt, "fit_term_structure")
 
         if method == "kalman_time_varying":
             warnings.warn(
-                "Time-varying Kalman calibration for phi is not implemented; falling back to fit_term_structure"
+                "Time-varying Kalman parameter estimation for phi is not implemented; falling back to fit_term_structure"
             )
             return _compute_phi_from_method(obs, dt, "fit_term_structure")
 
-        raise ValueError(f"Unknown phi calibration method: {method}")
+        raise ValueError(f"Unknown phi estimation method: {method}")
 
     phi_func = _compute_phi_from_method(observations, dt, phi_method)
 
@@ -412,16 +412,16 @@ def example_estimation(phi_method: str = "fit_term_structure") -> EstimationResu
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="G2++ calibration example")
+    parser = argparse.ArgumentParser(description="G2++ parameter estimation example")
     parser.add_argument(
         "--phi-method",
         type=str,
         default="fit_term_structure",
         choices=["fit_term_structure", "joint", "kalman_time_varying"],
-        help="Method to calibrate phi(t). Default: fit_term_structure",
+        help="Method to estimate phi(t). Default: fit_term_structure",
     )
     args = parser.parse_args()
 
-    # Run example with chosen phi calibration method
+    # Run example with chosen phi estimation method
     example_estimation(phi_method=args.phi_method)
 

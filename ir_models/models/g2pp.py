@@ -1,5 +1,5 @@
 """
-Core G2++ model components shared by simulation and calibration modules.
+Core G2++ model components shared by simulation and parameter estimation modules.
 """
 
 from __future__ import annotations

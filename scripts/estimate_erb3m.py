@@ -7,7 +7,7 @@ import os
 # Add project root to sys.path to allow imports from ir_models
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from ir_models.calibration.g2pp import G2ppKalmanMLE
+from ir_models.estimation.g2pp import G2ppKalmanMLE
 
 def main():
     # Load data
@@ -41,13 +41,13 @@ def main():
     # Time step (Monthly data)
     dt = 1.0 / 12.0
     
-    print("Calibrating G2++ model...")
+    print("Estimating G2++ model parameters...")
     
     # Initialize estimator
     # We use the default phi method (fit_term_structure) which is now the default in the class/example
     # But we need to pass it explicitly if we use the class directly?
     # The class G2ppKalmanMLE takes a phi function.
-    # In the example_estimation function in g2pp_calibration.py, it constructs a phi function.
+    # In the example_estimation function in g2pp_estimation.py, it constructs a phi function.
     # I should replicate that logic or import the helper if possible.
     # The helper _compute_phi_from_method is inside example_estimation, so I can't import it.
     # I will reimplement the simple smoothing phi here.
@@ -90,7 +90,7 @@ def main():
     
     result = estimator.fit(initial_guess=initial_guess)
     
-    print("\nCalibration Results:")
+    print("\nParameter Estimation Results:")
     print(f"Optimisation success: {result.optimized}")
     print(f"Log-likelihood: {result.log_likelihood:.4f}")
     print("Estimated Parameters:")

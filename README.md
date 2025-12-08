@@ -1,12 +1,12 @@
 # IR-models
 
 This repository contains reference implementations for two short-rate interest-rate models and associated
-calibration and Monte-Carlo simulation utilities:
+parameter estimation and Monte-Carlo simulation utilities:
 
 - Vasicek model (single-factor)
 - G2++ model (two-factor Gaussian)
 
-The README below follows the simple plan in the project root: separate sections for MODEL, CALIBRATION and
+The README below follows the simple plan in the project root: separate sections for MODEL, PARAMETER ESTIMATION and
 MC SIMULATION for each model.
 
 ## Requirements
@@ -52,20 +52,20 @@ Mathematical formulation
 
 	where $Z\sim\mathcal{N}(0,1)$.
 
-### Calibration
+### Parameter Estimation
 
 Files:
 
-- `ir_models/calibration/vasicek.py` — calibration utilities (MLE/Kalman or closed-form where applicable).
+- `ir_models/estimation/vasicek.py` — parameter estimation utilities (MLE/Kalman or closed-form where applicable).
 
 Usage:
 
-- Run the calibration script to fit Vasicek parameters to observed short-rate series.
+- Run the parameter estimation script to fit Vasicek parameters to observed short-rate series.
   ```bash
-  python3 -m ir_models.calibration.vasicek
+  python3 -m ir_models.estimation.vasicek
   ```
 
-Mathematical details used by the calibrator
+Mathematical details used by the estimator
 
 - For equally spaced observations with spacing $\Delta t$ the Vasicek dynamics imply an AR(1)-type transition
 	for consecutive samples $r_{n}\to r_{n+1}$:
@@ -76,7 +76,7 @@ Mathematical details used by the calibrator
 
 	$\displaystyle v = \frac{\sigma^2}{2\kappa}\bigl(1-e^{-2\kappa\Delta t}\bigr).$
 
-- The calibrator constructs the Gaussian log-likelihood
+- The estimator constructs the Gaussian log-likelihood
 
 	$\displaystyle \ell(\kappa,\theta,\sigma) = -\tfrac12\sum_n\Bigl(\log(2\pi v) + \frac{(r_{n+1}-\mu_n)^2}{v}\Bigr)$
 
@@ -113,7 +113,7 @@ What it does:
 
 Mathematical formulation
 
-- Two-factor Gaussian (G2++) dynamics for the zero-mean factors $x,y$ used in the code:
+- Two-factor Gaussian (G2++) dynamics for the zero-mean factors $x,y$ used in the code: uytreza	
 
 	$\displaystyle dx_t = -a\,x_t\,dt + \sigma\,dW_t^{(1)},$
 
@@ -145,22 +145,22 @@ Theoretical moments used by the code
 
 	matching the implementation in `_discrete_ou_coefficients()`.
 
-### Calibration
+### Parameter Estimation
 
 Files:
 
-- `ir_models/calibration/g2pp.py` — Kalman-filter / MLE estimator for the G2++ factors. The file contains an example workflow
+- `ir_models/estimation/g2pp.py` — Kalman-filter / MLE estimator for the G2++ factors. The file contains an example workflow
 	that (1) generates synthetic data, (2) constructs a phi(t) shift and (3) runs optimisation over factor parameters.
 
-phi calibration details:
+phi estimation details:
 
-- The example supports a small set of phi calibration "methods" exposed via the CLI flag `--phi-method`.
+- The example supports a small set of phi estimation "methods" exposed via the CLI flag `--phi-method`.
 	- `fit_term_structure` (default): builds a smoothed phi(t) from observed short rates and applies a final offset
 		so that phi at the last observation equals the last observed short rate (i.e. the fitted phi respects the
 		last observed term structure).
 	- `joint` and `kalman_time_varying`: placeholders that currently fall back to `fit_term_structure` with a warning.
 
-Kalman-MLE details used in the calibrator
+Kalman-MLE details used in the estimator
 
 - State vector and observation equation used by the Kalman filter:
 
@@ -185,23 +185,23 @@ Kalman-MLE details used in the calibrator
 
 Usage examples:
 
-Show help for the G2++ calibration example (no SciPy required to show help):
+Show help for the G2++ parameter estimation example (no SciPy required to show help):
 
 ```bash
-python3 -m ir_models.calibration.g2pp --help
+python3 -m ir_models.estimation.g2pp --help
 ```
 
 Run the example (SciPy required):
 
 ```bash
 pip install -r requirements.txt
-python3 -m ir_models.calibration.g2pp
+python3 -m ir_models.estimation.g2pp
 ```
 
 Choose a phi method (currently `joint` and `kalman_time_varying` will warn and fall back):
 
 ```bash
-python3 -m ir_models.calibration.g2pp --phi-method fit_term_structure
+python3 -m ir_models.estimation.g2pp --phi-method fit_term_structure
 ```
 
 ### MC Simulation
@@ -217,6 +217,6 @@ Usage:
 
 ## Examples & Notes
 
-- Each calibration file includes an `example_estimation()` helper demonstrating synthetic data generation and a
-	full calibration run.
-- Calibration uses SciPy's `minimize` (L-BFGS-B by default).
+- Each parameter estimation file includes an `example_estimation()` helper demonstrating synthetic data generation and a
+	full estimation run.
+- Parameter estimation uses SciPy's `minimize` (L-BFGS-B by default).

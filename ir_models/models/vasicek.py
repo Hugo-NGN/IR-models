@@ -1,5 +1,5 @@
 """
-Core Vasicek model implementation shared by simulation and calibration modules.
+Core Vasicek model implementation shared by simulation and parameter estimation modules.
 """
 
 from __future__ import annotations
