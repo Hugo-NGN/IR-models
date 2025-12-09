@@ -197,9 +197,23 @@ class G2ppKalmanMLE:
             "rho": float(rho),
             "measurement_var": float(meas_var),
         }
+    
+    def _param_dict_from_optimized_vector(self, vec: np.ndarray) -> Dict[str, float]:
+        """
+        Reconstruct full parameter dictionary from optimization vector,
+        combining optimized parameters with fixed parameters.
+        """
+        params = {}
+        # Fill in optimized parameters
+        for i, name in enumerate(self.param_names_to_optimize):
+            params[name] = float(vec[i])
+        # Fill in fixed parameters
+        for name, value in self.fixed_params.items():
+            params[name] = float(value)
+        return params
 
     def _negative_log_likelihood(self, vec: np.ndarray) -> float:
-        params = self._param_dict_from_vector(vec)
+        params = self._param_dict_from_optimized_vector(vec)
         log_like, _, _ = self._kalman_filter(params)
         if not np.isfinite(log_like):
             return 1e6
@@ -210,22 +224,44 @@ class G2ppKalmanMLE:
         initial_guess: Dict[str, float],
         bounds: Optional[Dict[str, tuple[float, float]]] = None,
         optimizer_kwargs: Optional[Dict[str, float]] = None,
+        fixed_params: Optional[Dict[str, float]] = None,
     ) -> EstimationResult:
         """
         Run numerical optimisation to maximise the Kalman log-likelihood.
+        
+        Parameters
+        ----------
+        initial_guess : Dict[str, float]
+            Initial values for parameters to be estimated.
+        bounds : Optional[Dict[str, tuple[float, float]]]
+            Bounds for each parameter.
+        optimizer_kwargs : Optional[Dict[str, float]]
+            Additional arguments for scipy.optimize.minimize.
+        fixed_params : Optional[Dict[str, float]]
+            Parameters to keep fixed during estimation (e.g., {"a": 0.01, "b": 0.5}).
+            These parameters will not be optimized.
+        
+        Returns
+        -------
+        EstimationResult
+            Results including estimated parameters and diagnostics.
         """
+        # Store fixed parameters
+        self.fixed_params = fixed_params if fixed_params is not None else {}
+        
+        # List of all parameter names in order
+        all_param_names = ["a", "b", "sigma", "eta", "rho", "measurement_var"]
+        
+        # Determine which parameters to optimize
+        self.param_names_to_optimize = [p for p in all_param_names if p not in self.fixed_params]
+        
+        # Build initial guess vector for parameters to optimize
         guess_vec = np.array(
-            [
-                initial_guess.get("a", 0.1),
-                initial_guess.get("b", 0.3),
-                initial_guess.get("sigma", 0.02),
-                initial_guess.get("eta", 0.015),
-                initial_guess.get("rho", 0.0),
-                initial_guess.get("measurement_var", self.measurement_var),
-            ],
+            [initial_guess.get(p, 0.1) for p in self.param_names_to_optimize],
             dtype=float,
         )
-
+        
+        # Default bounds
         if bounds is None:
             bounds = {
                 "a": (1e-4, 5.0),
@@ -235,15 +271,9 @@ class G2ppKalmanMLE:
                 "rho": (-0.999, 0.999),
                 "measurement_var": (1e-8, 0.01),
             }
-
-        bound_list = [
-            bounds["a"],
-            bounds["b"],
-            bounds["sigma"],
-            bounds["eta"],
-            bounds["rho"],
-            bounds["measurement_var"],
-        ]
+        
+        # Build bounds list for parameters to optimize
+        bound_list = [bounds[p] for p in self.param_names_to_optimize]
 
         opt_kwargs = {"method": "L-BFGS-B"}
         if optimizer_kwargs:
@@ -261,7 +291,7 @@ class G2ppKalmanMLE:
             **opt_kwargs,
         )
 
-        params = self._param_dict_from_vector(result.x)
+        params = self._param_dict_from_optimized_vector(result.x)
         log_like, filtered_means, filtered_covs = self._kalman_filter(params)
 
         return EstimationResult(
