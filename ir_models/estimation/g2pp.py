@@ -425,9 +425,9 @@ def example_estimation(phi_method: str = "fit_term_structure") -> EstimationResu
 
     initial_guess = {
         "a": 0.1,
-        "b": 0.4,
-        "sigma": 0.02,
-        "eta": 0.015,
+        "b": 0.5,
+        "sigma": 0.01,
+        "eta": 0.01,
         "rho": -0.4,
         "measurement_var": 1e-4,
     }
