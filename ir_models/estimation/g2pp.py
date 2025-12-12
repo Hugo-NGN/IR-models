@@ -2,17 +2,23 @@
 Parameter estimation for the G2++ model using a Kalman filter and
 maximum-likelihood approach.
 
-The implementation assumes we observe (possibly noisy) short rates
-`r_obs(t_i)` sampled at regular intervals `dt`. The short rate is
-modelled as
-    r(t) = x(t) + y(t) + phi(t)
-with (correlated) Ornstein-Uhlenbeck factors x, y governed by
+The implementation can work in two modes:
 
+1. SHORT_RATE mode (legacy): Observes short rates r_obs(t_i) = x(t) + y(t) + phi(t)
+   
+2. EURIBOR mode: Observes EURIBOR rates (e.g., 3M) which are forward rates
+   calculated from zero-coupon bond prices:
+       L(t; T, T+δ) = (1/δ) * (P(t,T) / P(t,T+δ) - 1)
+   
+   This is the correct approach for calibrating to market EURIBOR data,
+   as EURIBOR is not a short rate but a discrete forward rate.
+
+The factors x, y are (correlated) Ornstein-Uhlenbeck processes:
     dx = -a x dt + sigma dW1
     dy = -b y dt + eta  dW2,   corr[dW1, dW2] = rho.
 """
 
-#TODO : Complete the methods to caibrate phi(t) 
+#TODO : Complete the methods to calibrate phi(t) 
 
 
 from __future__ import annotations
@@ -34,7 +40,7 @@ except Exception:
     minimize = None  # type: ignore
     _SCIPY_AVAILABLE = False
 
-from ir_models.models.g2pp import G2ppModel
+from ir_models.models.g2pp import G2ppModel, G2ppZeroCouponPricing
 
 
 def _default_phi(_: float) -> float:
@@ -94,7 +100,11 @@ class EstimationResult:
 
 class G2ppKalmanMLE:
     """
-    Estimate G2++ parameters from short-rate observations using MLE.
+    Estimate G2++ parameters from observations using MLE via Kalman filter.
+    
+    Supports two observation modes:
+    - 'short_rate': Direct observation of short rate r(t) = x(t) + y(t) + phi(t)
+    - 'euribor': Observation of EURIBOR forward rates L(t; T, T+δ)
     """
 
     def __init__(
@@ -103,7 +113,28 @@ class G2ppKalmanMLE:
         dt: float,
         phi: Optional[Callable[[float], float]] = None,
         measurement_var: float = 1e-6,
+        observation_mode: str = "euribor",
+        euribor_tenor: float = 0.25,
+        euribor_start_offset: float = 0.0,
     ) -> None:
+        """
+        Parameters
+        ----------
+        observations : Sequence[float]
+            Observed rates (either short rates or EURIBOR rates depending on mode).
+        dt : float
+            Time step between observations (in years).
+        phi : callable, optional
+            Deterministic shift function φ(t). Defaults to zero.
+        measurement_var : float
+            Initial guess for measurement noise variance.
+        observation_mode : str
+            Either 'short_rate' or 'euribor' (default: 'euribor').
+        euribor_tenor : float
+            Tenor δ for EURIBOR in years (e.g., 0.25 for 3M). Only used in euribor mode.
+        euribor_start_offset : float
+            Time offset T in L(t; T, T+δ). Usually 0 for spot-starting EURIBOR.
+        """
         if dt <= 0:
             raise ValueError("Time step dt must be positive.")
         self.observations = np.asarray(observations, dtype=float)
@@ -113,6 +144,12 @@ class G2ppKalmanMLE:
         self.dt = dt
         self.phi = phi if phi is not None else _default_phi
         self.measurement_var = measurement_var
+        
+        if observation_mode not in ["short_rate", "euribor"]:
+            raise ValueError("observation_mode must be 'short_rate' or 'euribor'")
+        self.observation_mode = observation_mode
+        self.euribor_tenor = euribor_tenor
+        self.euribor_start_offset = euribor_start_offset
 
     # --------------------------------------------------------------------- #
     # Kalman filter
@@ -124,6 +161,54 @@ class G2ppKalmanMLE:
         var_y = _stationary_variance(b, eta)
         cov = np.diag([var_x, var_y])
         return mean, cov
+
+    def _observation_function(
+        self,
+        state: np.ndarray,
+        t: float,
+        pricing: G2ppZeroCouponPricing,
+    ) -> float:
+        """
+        Compute predicted observation given state [x1, x2].
+        
+        - In 'short_rate' mode: r(t) = x1 + x2 + phi(t)
+        - In 'euribor' mode: L(t; T, T+δ) via zero-coupon prices
+        """
+        x1, x2 = state
+        
+        if self.observation_mode == "short_rate":
+            return x1 + x2 + self.phi(t)
+        elif self.observation_mode == "euribor":
+            T_start = t + self.euribor_start_offset
+            return pricing.euribor_rate(t, T_start, self.euribor_tenor, x1, x2)
+        else:
+            raise ValueError(f"Unknown observation mode: {self.observation_mode}")
+    
+    def _observation_jacobian(
+        self,
+        state: np.ndarray,
+        t: float,
+        pricing: G2ppZeroCouponPricing,
+        epsilon: float = 1e-6,
+    ) -> np.ndarray:
+        """
+        Compute Jacobian of observation function w.r.t. state via finite differences.
+        Returns H = [∂h/∂x1, ∂h/∂x2] as a (1, 2) array.
+        """
+        x1, x2 = state
+        h0 = self._observation_function(state, t, pricing)
+        
+        # Perturb x1
+        state_dx1 = np.array([x1 + epsilon, x2])
+        h_dx1 = self._observation_function(state_dx1, t, pricing)
+        dh_dx1 = (h_dx1 - h0) / epsilon
+        
+        # Perturb x2
+        state_dx2 = np.array([x1, x2 + epsilon])
+        h_dx2 = self._observation_function(state_dx2, t, pricing)
+        dh_dx2 = (h_dx2 - h0) / epsilon
+        
+        return np.array([[dh_dx1, dh_dx2]])
 
     def _kalman_filter(
         self,
@@ -142,20 +227,32 @@ class G2ppKalmanMLE:
         F, Q = _transition_matrices(a, b, sigma, eta, rho, self.dt)
         state_mean, state_cov = self._initialize_state(a, b, sigma, eta)
 
-        H = np.array([[1.0, 1.0]])  # observation matrix
         R = np.array([[meas_var]])
         log_likelihood = 0.0
 
         filtered_means = np.zeros((self.n_obs, 2))
         filtered_covs = np.zeros((self.n_obs, 2, 2))
 
-        phi_values = np.array([self.phi(i * self.dt) for i in range(self.n_obs)])
+        # Create pricing object for EURIBOR calculations
+        pricing = G2ppZeroCouponPricing(a, b, sigma, eta, rho, self.phi)
 
         for idx, obs in enumerate(self.observations):
+            t = idx * self.dt
             pred_mean = state_mean
             pred_cov = state_cov
 
-            obs_pred = (H @ pred_mean)[0] + phi_values[idx]
+            # Compute predicted observation
+            if self.observation_mode == "short_rate":
+                # Linear observation: h(x) = x1 + x2 + phi(t)
+                H = np.array([[1.0, 1.0]])
+                obs_pred = self._observation_function(pred_mean, t, pricing)
+            elif self.observation_mode == "euribor":
+                # Nonlinear observation: use Extended Kalman Filter
+                obs_pred = self._observation_function(pred_mean, t, pricing)
+                H = self._observation_jacobian(pred_mean, t, pricing)
+            else:
+                raise ValueError(f"Unknown observation mode: {self.observation_mode}")
+
             innovation = obs - obs_pred
 
             S = H @ pred_cov @ H.T + R

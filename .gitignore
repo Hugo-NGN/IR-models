@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# LaTeX Documentation (generated files)
+docs/G2PP_Methodology.tex
+docs/G2PP_Methodology.pdf
+docs/G2PP_Methodology.aux
+docs/G2PP_Methodology.log
+docs/G2PP_Methodology.out
+docs/G2PP_Methodology.toc
+docs/G2PP_Methodology.bbl
+docs/G2PP_Methodology.blg
+docs/G2PP_Methodology.fdb_latexmk
+docs/G2PP_Methodology.fls
+docs/G2PP_Methodology.synctex.gz
+docs/Makefile
+docs/README.md
+docs/DOCUMENTATION_SUMMARY.md
+
+# Additional documentation files
+EURIBOR_CALIBRATION.md
+IMPLEMENTATION_SUMMARY.md
+
+# Test scripts 
+test_euribor_calibration.py
+
+# Data files
+*.xlsx
+*.xls
+*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Plots and outputs
+*.png
+*.jpg
+*.pdf
+!docs/*.pdf

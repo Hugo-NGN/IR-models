@@ -9,6 +9,26 @@ parameter estimation and Monte-Carlo simulation utilities:
 The README below follows the simple plan in the project root: separate sections for MODEL, PARAMETER ESTIMATION and
 MC SIMULATION for each model.
 
+## 📚 Documentation
+
+**Complete technical documentation** is available in LaTeX format:
+
+📖 **[G2++ Methodology Documentation](docs/G2PP_Methodology.tex)** - Complete mathematical and computational description including:
+- Stochastic dynamics and factor models
+- Zero-coupon bond pricing with analytical formulas
+- EURIBOR calculation as forward rates
+- Kalman Filter and Extended Kalman Filter for parameter estimation
+- Monte Carlo simulation via Euler-Maruyama
+- Full code-to-math correspondence
+
+To compile the PDF:
+```bash
+cd docs
+make pdf
+```
+
+See [docs/README.md](docs/README.md) for more details.
+
 ## Requirements
 
 - Python 3.10+
@@ -145,26 +165,46 @@ Theoretical moments used by the code
 
 	matching the implementation in `_discrete_ou_coefficients()`.
 
+### Zero-Coupon Bond Pricing and EURIBOR Calculation
+
+The G2++ model provides analytical formulas for zero-coupon bond prices:
+
+$$P(t, T) = A(t, T) \cdot \exp(-B_1(t,T) x_1(t) - B_2(t,T) x_2(t))$$
+
+where:
+
+$$B_i(t,T) = \frac{1 - e^{-a_i (T-t)}}{a_i}, \quad i = 1,2$$
+
+$$A(t,T) = \exp\left( \int_t^T \phi(s) ds - V(t,T) \right)$$
+
+and $V(t,T)$ captures the variance contribution from the stochastic factors.
+
+From these bond prices, we can compute **EURIBOR rates** (or any forward LIBOR rate) as:
+
+$$L(t; T, T+\delta) = \frac{1}{\delta} \left( \frac{P(t,T)}{P(t,T+\delta)} - 1 \right)$$
+
+where $\delta$ is the tenor (e.g., 0.25 for 3 months).
+
+**Important:** EURIBOR is **not** a short rate—it is a discrete forward rate derived from zero-coupon bond prices. This distinction is crucial for proper calibration.
+
+Implementation: See `G2ppZeroCouponPricing` class in `ir_models/models/g2pp.py`.
+
 ### Parameter Estimation
 
 Files:
 
-- `ir_models/estimation/g2pp.py` — Kalman-filter / MLE estimator for the G2++ factors. The file contains an example workflow
-	that (1) generates synthetic data, (2) constructs a phi(t) shift and (3) runs optimisation over factor parameters.
+- `ir_models/estimation/g2pp.py` — Extended Kalman filter / MLE estimator for the G2++ factors. Supports two observation modes:
+	- **Short rate mode** (legacy): Direct observation of $r(t) = x(t) + y(t) + \phi(t)$
+	- **EURIBOR mode** (recommended): Observation of forward rates $L(t; T, T+\delta)$ computed from zero-coupon bond prices
 
 phi estimation details:
 
-- The example supports a small set of phi estimation "methods" exposed via the CLI flag `--phi-method`.
-	- `fit_term_structure` (default): builds a smoothed phi(t) from observed short rates and applies a final offset
-		so that phi at the last observation equals the last observed short rate (i.e. the fitted phi respects the
-		last observed term structure).
-	- `joint` and `kalman_time_varying`: placeholders that currently fall back to `fit_term_structure` with a warning.
+- The estimator supports a deterministic shift function $\phi(t)$ that can be provided externally or set to zero.
+- For production calibration, $\phi(t)$ should be fitted to the initial term structure of interest rates.
 
-Kalman-MLE details used in the estimator
+Extended Kalman Filter (EKF) details for EURIBOR mode
 
-- State vector and observation equation used by the Kalman filter:
-
-	State: $\mathbf{x}_n = [x_n,\;y_n]^\top$ evolves linearly via the exact discrete transition
+- State vector: $\mathbf{x}_n = [x_n,\;y_n]^\top$ evolves linearly via the exact discrete transition
 
 	$\displaystyle \mathbf{x}_{n+1} = F\mathbf{x}_n + \mathbf{u}_n,$
 
@@ -172,12 +212,24 @@ Kalman-MLE details used in the estimator
 	process noise covariance assembled from the OU increment standard deviations and the correlation $\rho$ (see
 	`_transition_matrices` in the code).
 
-- Observation model (short-rate observations with measurement noise):
+- Observation model (EURIBOR with measurement noise):
+
+	$\displaystyle z_n = h(\mathbf{x}_n, t_n) + \varepsilon_n,$
+
+	where $h(\mathbf{x}_n, t_n) = L(t_n; T, T+\delta)$ is the **nonlinear** EURIBOR function computed from ZC bond prices,
+	and $\varepsilon_n\sim\mathcal{N}(0,\,R)$ captures measurement variance. 
+	
+- The Extended Kalman Filter linearizes the observation equation at each time step:
+
+	$\displaystyle H_n = \nabla h|_{\mathbf{x}_n} \approx \begin{bmatrix} \frac{\partial L}{\partial x_1} & \frac{\partial L}{\partial x_2} \end{bmatrix}$
+
+	computed via finite differences. The EKF then proceeds with standard Kalman update equations using this time-varying Jacobian.
+
+- Legacy observation model (short-rate observations with measurement noise):
 
 	$\displaystyle z_n = H\mathbf{x}_n + \phi(t_n) + \varepsilon_n,$
 
-	where $H=[1\;1]$, and $\varepsilon_n\sim\mathcal{N}(0,\,R)$ captures measurement variance. The Kalman filter
-	is run with this model to compute the (Gaussian) log-likelihood of the observed short-rate series under the
+	where $H=[1\;1]$. The standard Kalman filter is used in this linear case.
 	candidate parameters $(a,b,\sigma,\eta,\rho)$.
 
 - The implementation computes the log-likelihood incrementally inside the Kalman loop and the outer optimiser
