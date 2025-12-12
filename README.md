@@ -13,7 +13,7 @@ MC SIMULATION for each model.
 
 **Complete technical documentation** is available in LaTeX format:
 
-📖 **[G2++ Methodology Documentation](docs/G2PP_Methodology.tex)** - Complete mathematical and computational description including:
+📖 **[G2++ Methodology Documentation](docs/G2PP_Methodology.tex)**  - Complete mathematical and computational description including:
 - Stochastic dynamics and factor models
 - Zero-coupon bond pricing with analytical formulas
 - EURIBOR calculation as forward rates
@@ -21,13 +21,8 @@ MC SIMULATION for each model.
 - Monte Carlo simulation via Euler-Maruyama
 - Full code-to-math correspondence
 
-To compile the PDF:
-```bash
-cd docs
-make pdf
-```
 
-See [docs/README.md](docs/README.md) for more details.
+*Document will be added soon...*
 
 ## Requirements
 
